@@ -1,0 +1,7 @@
+lendc
+*.cmi
+*.cmx
+*.o
+
+# for Vim:
+*.swp
