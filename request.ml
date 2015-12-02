@@ -61,7 +61,6 @@ let get_portfolios (api_key, investor_id) =
        portfolio
      | _ -> failwith "Unexpected JSON object")
 
-
 let get_notes (api_key, investor_id) =
   Http.get (account_subresource investor_id "/detailednotes") (get_headers api_key)
   |> parse_response (function
