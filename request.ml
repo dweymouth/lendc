@@ -56,18 +56,26 @@ let get_account (api_key, investor_id) =
 let get_portfolios (api_key, investor_id) =
   Http.get (account_subresource investor_id "/portfolios") (get_headers api_key)
   |> parse_response (function
-     | `Assoc [("myPortfolios", `List portfolios)] ->
-       let portfolio = { id = 0; name = ""; description = None } in
-       portfolio
-     | _ -> failwith "Unexpected JSON object")
+     | `Assoc [("myPortfolios", `List portfolios_json)] ->
+     List.map (function
+       | `Assoc port_json ->
+         let portfolio = { id = 0; name = ""; description = None } in
+         List.iter (function
+           | "portfolioId", `Int id -> portfolio.id <- id;
+           | "portfolioName", `String name -> portfolio.name <- name;
+           | "portfolioDescription", `String str -> portfolio.description <- Some str
+           | _ -> ignore ()
+         ) port_json; portfolio
+       | _ -> failwith "Unexpected JSON object") portfolios_json
+     | `Assoc [] -> []
+     | _ -> failwith "Unexpected field in portfolios response")
 
 let get_notes (api_key, investor_id) =
   Http.get (account_subresource investor_id "/detailednotes") (get_headers api_key)
   |> parse_response (function
-     | `Assoc [("myNotes", `List notes)] ->
-     List.fold_left (fun notes note_json ->
-       match note_json with
-       | `Assoc notes_json -> 
+     | `Assoc [("myNotes", `List notes_json)] ->
+     List.map (function
+       | `Assoc note_json -> 
          let note = default_note () in
          List.iter (function
            | "loanId", `Int id -> note.loan_id <- id;
@@ -85,8 +93,9 @@ let get_notes (api_key, investor_id) =
            | "noteAmount", json -> note.note_amount <- (currency json);
            | "accruedInterest", json -> note.accrued_interest <- (currency json);
            | _ -> ignore ()
-         ) notes_json; note :: notes
-       | _ -> failwith "Unexpected JSON object") [] notes
+         ) note_json; note
+       | _ -> failwith "Unexpected JSON object") notes_json
+     | `Assoc [] -> []
      | _ -> failwith "Unexpected field in notes response")
 
 let get_loans (api_key, _) : (string * loan list) api_response =
@@ -135,12 +144,13 @@ let submit_order (api_key, investor_id) orders =
       Printf.sprintf "{
         \"loanId\":%d,
         \"requestedAmount\":%f"
-       order.loan_id order.requested_amount ^ 
-      match order.portfolio_id with Some i -> Printf.sprintf ",\"portfolioId\":%d}" i
+       order.loan_id order.amount ^ 
+      match order.portfolio_id with Some i -> Printf.sprintf ",
+        \"portfolioId\":%d}" i
                                   | None -> "}")
-    orders |> String.concat "," in 
+    orders |> String.concat ",\n    " in 
   Http.post (account_subresource investor_id "/orders") (post_headers api_key)
     (Printf.sprintf "{
       \"aid\":%d,
       \"orders\":[%s]
-     }" investor_id orders_json)
+}"    investor_id orders_json)

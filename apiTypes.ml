@@ -122,7 +122,7 @@ type loan = {
 
 type order = {
   loan_id : int;
-  requested_amount : float;
+  amount : float;
   portfolio_id : int option;
 }
 
